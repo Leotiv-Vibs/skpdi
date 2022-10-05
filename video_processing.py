@@ -11,19 +11,18 @@ class VideoProcessing:
     a class for working with video
     """
 
-    def __init__(self, path_video: str, fps_needed: int):
-        self.path_video = path_video
-        self.fps_needed = fps_needed
-        self.path_img = f'{path_video[:-4]}_{fps_needed}'
+    def __init__(self, ):
+        pass
 
-    def save_discard_frame_video(self, path_video: str, fps_needed: int):
+    def save_discard_frame_video(self, path_video: str, path_for_save_image: str, fps_needed: int):
         """
         saving and discarding frames from video
         :param path_video: the path to the video file
         :param fps_needed: The right number of frames per second
         """
         # create directory for save image
-        os.makedirs(self.path_img, exist_ok=True)
+        path_img = f'{path_for_save_image}/{path_video.split("/")[-1][:-4]}_{fps_needed}'
+        os.makedirs(path_img, exist_ok=True)
 
         vidcap = cv2.VideoCapture(path_video)  # start videocapture
         count_frames_video = round(vidcap.get(cv2.CAP_PROP_FRAME_COUNT))  # get count images in video
@@ -35,7 +34,7 @@ class VideoProcessing:
             success, image = vidcap.read()  # read images and success from videocapture
             if count_frame % range_cut_video == 0:  # clipping
                 frames += 1  # number save image
-                cv2.imwrite(f'{self.path_img}/{frames}.jpg', image)  # save image
+                cv2.imwrite(f'{path_img}/{frames}.jpg', image)  # save image
 
     def write_video_from_images(self, path_img: str, fps: int, name_video: str):
         """
@@ -56,13 +55,21 @@ class VideoProcessing:
 
         out.release()
 
+    def multiple_video_discard_save(self, path_dir_video: str, path_for_save_image: str, fps_needed: int = 5):
+        os.makedirs(path_for_save_image, exist_ok=True)
+        names_video = os.listdir(path_dir_video)
+        for name in names_video:
+            path_video = f'{path_dir_video}/{name}'
+            self.save_discard_frame_video(path_video, path_for_save_image, fps_needed)
+
 
 def run():
-    path_video = 'Taylor Swift - willow (Official Music Video).mp4'  # PUT YOUR PATH VIDEO
-    fps_needed = 5
-    vid_pr = VideoProcessing(path_video, fps_needed)
-    vid_pr.save_discard_frame_video(vid_pr.path_video, vid_pr.fps_needed)
-    vid_pr.write_video_from_images(vid_pr.path_img, 5, 'name_video')
+    project_path = os.path.dirname(os.path.abspath(__file__))
+    path_videos = f'{project_path}/videos'
+    path_for_save_image = f'{project_path}/images_from_video'
+
+    vid_proc = VideoProcessing()
+    vid_proc.multiple_video_discard_save(path_videos, path_for_save_image)
 
 
 if __name__ == '__main__':
