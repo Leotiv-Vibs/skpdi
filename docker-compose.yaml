@@ -1,0 +1,38 @@
+version: '3.7'
+
+services:
+  detect-app:
+    image: skpdi-detect-app
+    build: .
+    working_dir: /opt
+    container_name: skpdi-detector
+    command: uvicorn src.main:app --host 0.0.0.0 --port 80
+    networks:
+      - app-network
+    volumes:
+      - ./model:/opt/model
+    ports:
+      - "8000:80"
+    depends_on:
+      - db
+
+  db:
+    image: postgres:12.0-alpine
+    container_name: skpdi_db
+    networks:
+      - app-network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=username
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=results
+    expose:
+      - 5432
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    name: skpdi_network
