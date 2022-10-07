@@ -14,6 +14,8 @@ from .database import SessionLocal, engine
 
 db_models.Base.metadata.create_all(bind=engine)
 
+# weights - https://drive.google.com/file/d/19xSpzu8QK1McwHQyUcMpfZxnQsQPRvPw/view?usp=sharing
+
 
 # Dependency
 def get_db():
