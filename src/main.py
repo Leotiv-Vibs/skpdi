@@ -14,7 +14,8 @@ from .database import SessionLocal, engine
 
 db_models.Base.metadata.create_all(bind=engine)
 
-# weights - https://drive.google.com/file/d/19xSpzu8QK1McwHQyUcMpfZxnQsQPRvPw/view?usp=sharing
+
+# wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=19xSpzu8QK1McwHQyUcMpfZxnQsQPRvPw' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=19xSpzu8QK1McwHQyUcMpfZxnQsQPRvPw" -O best.pt && rm -rf /tmp/cookies.txt
 
 
 # Dependency
