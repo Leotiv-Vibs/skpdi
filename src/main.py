@@ -26,7 +26,7 @@ def get_db():
 
 def get_yolov5():
     model = torch.hub.load('/opt/yolov5', 'custom',
-                           path='/opt/yolov5/runs/train/exp/weights/best.pt',
+                           path='/opt/best.pt',
                            source='local')
     model.conf = 0.5
     return model
