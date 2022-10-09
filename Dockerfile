@@ -12,6 +12,7 @@ WORKDIR /opt
 COPY requirements.txt ./
 COPY src/ /opt/src
 COPY yolov5/ /opt/yolov5
+COPY best.pt /opt/best.pt
 
 RUN pip install -U pip && \
     pip install --no-cache-dir -r requirements.txt && \
