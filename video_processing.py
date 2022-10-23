@@ -1,9 +1,14 @@
 import os
 import random
+import shutil
 
 import cv2
 import natsort
+import imagehash
+import pandas as pd
 from tqdm import tqdm
+from PIL import Image
+
 
 
 class VideoProcessing:
@@ -14,7 +19,7 @@ class VideoProcessing:
     def __init__(self, ):
         pass
 
-    def save_discard_frame_video(self, path_video: str, path_for_save_image: str, fps_needed: int):
+    def save_discard_frame_video(self, path_video: str, path_for_save_image: str, fps_needed: int = 20):
         """
         saving and discarding frames from video
         :param path_video: the path to the video file
@@ -33,6 +38,7 @@ class VideoProcessing:
         for count_frame in tqdm(range(count_frames_video), desc='save and discard frame video'):
             success, image = vidcap.read()  # read images and success from videocapture
             if count_frame % range_cut_video == 0:  # clipping
+                image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
                 frames += 1  # number save image
                 cv2.imwrite(f'{path_img}/{frames}.jpg', image)  # save image
 
@@ -63,14 +69,45 @@ class VideoProcessing:
             self.save_discard_frame_video(path_video, path_for_save_image, fps_needed)
 
 
+    def dlt_duplicate_img(self, path_imgs, path_img_after_delete):
+        """
+
+        :param path_img:
+        :param path_img_after_delete:
+        :return:
+        """
+        os.makedirs(path_img_after_delete, exist_ok=True)
+        list_files_img = os.listdir(path_imgs)
+        list_imagehash = []
+        for iterr in tqdm(list_files_img, desc='get image hash'):
+            val_hash = imagehash.average_hash(Image.open(f'{path_imgs}/{iterr}'))
+            list_imagehash.append(val_hash)
+        data = pd.DataFrame(
+            {
+                'file_name_image': list_files_img,
+                'hash_file': list_imagehash
+            }
+        )
+        data = data.drop_duplicates('hash_file', keep='first')
+        # создаем список для нужных файлов изображений
+        list_files_image_new = data['file_name_image'].values.tolist()
+        for img in tqdm(list_files_image_new, desc='copy file after delete duplicate'):
+            shutil.copy2(f'{path_imgs}/{img}', path_img_after_delete)
+
+    def multiple_dlt_duplicate_img(self, paths_imgs_dirs, path_after_dlt_dup):
+        paths_dir_img = os.listdir(paths_imgs_dirs)
+        for path in paths_dir_img:
+            self.dlt_duplicate_img(f'{paths_imgs_dirs}/{path}', f'{path_after_dlt_dup}/{path}')
+
+
 def run():
     project_path = os.path.dirname(os.path.abspath(__file__))
-    path_videos = f'{project_path}/videos'
-    path_for_save_image = f'{project_path}/images_from_video'
-
     vid_proc = VideoProcessing()
-    vid_proc.multiple_video_discard_save(path_videos, path_for_save_image)
 
+
+
+    path_video = '/home/artemii_vibs/Downloads/IMG_8162.MOV'
+    vid_proc.save_discard_frame_video(path_video, '/home/artemii_vibs/Downloads/IMG_8162')
 
 if __name__ == '__main__':
     run()
