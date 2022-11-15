@@ -12,7 +12,10 @@ WORKDIR /opt
 COPY requirements.txt ./
 COPY src/ /opt/src
 COPY yolov5/ /opt/yolov5
+COPY trackers/ /opt/trackers
 COPY best.pt /opt/best.pt
+COPY track.py /opt/track.py
+COPY test_video /opt/test_video
 
 RUN pip install -U pip && \
     pip install --no-cache-dir -r requirements.txt && \
