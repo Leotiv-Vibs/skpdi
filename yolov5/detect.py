@@ -80,7 +80,7 @@ def run(
     source = str(source)
     save_img = not nosave and not source.endswith('.txt')  # save inference images
     is_file = Path(source).suffix[1:] in (IMG_FORMATS + VID_FORMATS)
-    is_url = source.lower().startswith(('rtsp://', 'rtmp://', 'http://', 'https://', 'rtsp.me/', 'https://rtsp.me/'))
+    is_url = source.lower().startswith(('rtsp://', 'rtmp://', 'http://', 'https://'))
     webcam = source.isnumeric() or source.endswith('.txt') or (is_url and not is_file)
     screenshot = source.lower().startswith('screen')
     if is_url and is_file:
@@ -224,7 +224,7 @@ def parse_opt():
     parser.add_argument('--max-det', type=int, default=1000, help='maximum detections per image')
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--view-img', action='store_true', help='show results')
-    parser.add_argument('--save-txt', action='store_false', help='save results to *.txt')
+    parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
     parser.add_argument('--save-conf', action='store_true', help='save confidences in --save-txt labels')
     parser.add_argument('--save-crop', action='store_true', help='save cropped prediction boxes')
     parser.add_argument('--nosave', action='store_true', help='do not save images/videos')
