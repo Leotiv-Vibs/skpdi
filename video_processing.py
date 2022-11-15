@@ -42,6 +42,7 @@ class VideoProcessing:
                 frames += 1  # number save image
                 cv2.imwrite(f'{path_img}/{frames}.jpg', image)  # save image
 
+
     def write_video_from_images(self, path_img: str, fps: int, name_video: str):
         """
         making a video out of images
