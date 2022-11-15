@@ -8,3 +8,6 @@ psycopg2-binary==2.9.4
 -f https://download.pytorch.org/whl/cpu
 torch==1.12.1
 torchvision==0.13.1
+easydict==1.10
+gdown==4.5.3
+numpy==1.23.3
