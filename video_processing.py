@@ -13,6 +13,7 @@ from PIL import Image
 
 class VideoProcessing:
     """
+
     a class for working with video
     """
 
