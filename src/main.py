@@ -8,9 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from PIL import Image
 
-
-from . import crud, db_models, schemas
-from .database import SessionLocal, engine
+from src import crud, db_models, schemas
+from database import SessionLocal, engine
 
 db_models.Base.metadata.create_all(bind=engine)
 
@@ -79,7 +78,25 @@ def get_health():
 
 
 @app.post("/results/", response_model=schemas.Result)
-async def create_result(file: bytes = File(...), db: Session = Depends(get_db)):
+async def create_result(
+        id_object,
+        class_object,
+        timestamp,
+        latitude,
+        latitude_direction,
+        longitude,
+        longitude_direction,
+        gps_quality_indicator,
+        number_satellites,
+        horizontal_dilution_precision,
+        antenna_alt_above_sea_level,
+        units_altitude,
+        geoidal_separation,
+        units_geoidal_separation,
+        age_differential_gps_data,
+        differential_reference_station,
+        file: bytes = File(...),
+        db: Session = Depends(get_db), ):
     input_image = get_image_from_bytes(file)
     results = model(input_image)
     detect_res = results.pandas().xyxy[0].to_json(orient="records")
