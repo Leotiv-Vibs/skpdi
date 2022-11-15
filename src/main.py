@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from PIL import Image
 
 from src import crud, db_models, schemas
-from database import SessionLocal, engine
+from .database import SessionLocal, engine
 
 db_models.Base.metadata.create_all(bind=engine)
 
@@ -79,28 +79,48 @@ def get_health():
 
 @app.post("/results/", response_model=schemas.Result)
 async def create_result(
-        id_object,
-        class_object,
-        timestamp,
-        latitude,
-        latitude_direction,
-        longitude,
-        longitude_direction,
-        gps_quality_indicator,
-        number_satellites,
-        horizontal_dilution_precision,
-        antenna_alt_above_sea_level,
-        units_altitude,
-        geoidal_separation,
-        units_geoidal_separation,
-        age_differential_gps_data,
-        differential_reference_station,
-        file: bytes = File(...),
-        db: Session = Depends(get_db), ):
+        file: json,
+        db: Session = Depends(get_db)):
+    image = file['image']
+    id_object = file['id_object'],
+    class_object = file['class_object'],
+    timestamp = file['timestamp'],
+    latitude = file['latitude'],
+    latitude_direction = file['latitude_direction'],
+    longitude = file['longitude'],
+    longitude_direction = file['longitude_direction'],
+    gps_quality_indicator = file['gps_quality_indicator'],
+    number_satellites = file['number_satellites'],
+    horizontal_dilution_precision = file['horizontal_dilution_precision'],
+    antenna_alt_above_sea_level = file['antenna_alt_above_sea_level'],
+    units_altitude = file['units_altitude'],
+    geoidal_separation = file['geoidal_separation'],
+    units_geoidal_separation = file['units_geoidal_separation'],
+    age_differential_gps_data = file['age_differential_gps_data'],
+    differential_reference_station = file['differential_reference_station']
+
     input_image = get_image_from_bytes(file)
     results = model(input_image)
     detect_res = results.pandas().xyxy[0].to_json(orient="records")
     detect_res = {"result": json.loads(detect_res)}
-    result = schemas.StoreResult(coordinates=detect_res, image=file)
+    result = schemas.StoreResult(coordinates=detect_res,
+                                 image=image,
+                                 id_object=id_object,
+                                 class_object=class_object,
+                                 timestamp=timestamp,
+                                 latitude=latitude,
+                                 latitude_direction=latitude_direction,
+                                 longitude=longitude,
+                                 longitude_direction=longitude_direction,
+                                 gps_quality_indicator=gps_quality_indicator,
+                                 number_satellites=number_satellites,
+                                 horizontal_dilution_precision=horizontal_dilution_precision,
+                                 antenna_alt_above_sea_level=antenna_alt_above_sea_level,
+                                 units_altitude=units_altitude,
+                                 geoidal_separation=geoidal_separation,
+                                 units_geoidal_separation=units_geoidal_separation,
+                                 age_differential_gps_data=age_differential_gps_data,
+                                 differential_reference_station=differential_reference_station
+                                 )
     created = crud.create_result(db, result)
     return created
