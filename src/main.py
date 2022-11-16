@@ -81,23 +81,24 @@ def get_health():
 async def create_result(
         file: json,
         db: Session = Depends(get_db)):
-    image = file['image']
-    id_object = file['id_object'],
-    class_object = file['class_object'],
-    timestamp = file['timestamp'],
-    latitude = file['latitude'],
-    latitude_direction = file['latitude_direction'],
-    longitude = file['longitude'],
-    longitude_direction = file['longitude_direction'],
-    gps_quality_indicator = file['gps_quality_indicator'],
-    number_satellites = file['number_satellites'],
-    horizontal_dilution_precision = file['horizontal_dilution_precision'],
-    antenna_alt_above_sea_level = file['antenna_alt_above_sea_level'],
-    units_altitude = file['units_altitude'],
-    geoidal_separation = file['geoidal_separation'],
-    units_geoidal_separation = file['units_geoidal_separation'],
-    age_differential_gps_data = file['age_differential_gps_data'],
-    differential_reference_station = file['differential_reference_station']
+    data = json.load(file)
+    image = data['image']
+    id_object = data['id_object']
+    class_object = data['class_object']
+    timestamp = data['timestamp']
+    latitude = data['latitude']
+    latitude_direction = data['latitude_direction']
+    longitude = data['longitude']
+    longitude_direction = data['longitude_direction']
+    gps_quality_indicator = data['gps_quality_indicator']
+    number_satellites = data['number_satellites']
+    horizontal_dilution_precision = data['horizontal_dilution_precision']
+    antenna_alt_above_sea_level = data['antenna_alt_above_sea_level']
+    units_altitude = data['units_altitude']
+    geoidal_separation = data['geoidal_separation']
+    units_geoidal_separation = data['units_geoidal_separation']
+    age_differential_gps_data = data['age_differential_gps_data']
+    differential_reference_station = data['differential_reference_station']
 
     input_image = get_image_from_bytes(file)
     results = model(input_image)
