@@ -1,6 +1,8 @@
 import argparse
+import base64
 
 import os
+
 # limit the number of cpus used by high performance libraries
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -12,6 +14,7 @@ import sys
 import numpy as np
 from pathlib import Path
 import torch
+import psycopg2
 import torch.backends.cudnn as cudnn
 
 FILE = Path(__file__).resolve()
@@ -27,20 +30,39 @@ if str(ROOT / 'trackers' / 'strong_sort') not in sys.path:
 if str(ROOT / 'trackers' / 'ocsort') not in sys.path:
     sys.path.append(str(ROOT / 'trackers' / 'ocsort'))  # add strong_sort ROOT to PATH
 if str(ROOT / 'trackers' / 'strong_sort' / 'deep' / 'reid' / 'torchreid') not in sys.path:
-    sys.path.append(str(ROOT / 'trackers' / 'strong_sort' / 'deep' / 'reid' / 'torchreid'))  # add strong_sort ROOT to PATH
+    sys.path.append(
+        str(ROOT / 'trackers' / 'strong_sort' / 'deep' / 'reid' / 'torchreid'))  # add strong_sort ROOT to PATH
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 import logging
 from yolov5.models.common import DetectMultiBackend
 from yolov5.utils.dataloaders import VID_FORMATS, LoadImages, LoadStreams
 from yolov5.utils.general import (LOGGER, check_img_size, non_max_suppression, scale_coords, check_requirements, cv2,
-                                  check_imshow, xyxy2xywh, increment_path, strip_optimizer, colorstr, print_args, check_file)
+                                  check_imshow, xyxy2xywh, increment_path, strip_optimizer, colorstr, print_args,
+                                  check_file)
 from yolov5.utils.torch_utils import select_device, time_sync
 from yolov5.utils.plots import Annotator, colors, save_one_box
 from trackers.multi_tracker_zoo import create_tracker
 
 # remove duplicated stream handler to avoid duplicated logging
 logging.getLogger().removeHandler(logging.getLogger().handlers[0])
+
+
+def to_db(list_save):
+    """
+    Запись в базу данных.
+    """
+    # открываем соединение с базой
+    connect = psycopg2.connect(dbname='db_skdpi', user='username', password='password', host='skpdi_db', port=5432)
+    cursor = connect.cursor()
+    tup = (list_save,)
+    columns = "(image_base,labels,id_object,class_object,timestamp,latitude,latitude_direction,longitude,longitude_direction, gps_quality_indicator,number_satellites, horizontal_dilution_precision,antenna_alt_above_sea_level,units_altitude,geoidal_separation,units_geoidal_separation,age_differential_gps_data,differential_reference_station)"
+    cursor.executemany(
+        f"INSERT INTO t_skpdi{columns} VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        tup)
+    connect.commit()
+    connect.close()
+
 
 @torch.no_grad()
 def run(
@@ -75,7 +97,6 @@ def run(
         dnn=False,  # use OpenCV DNN for ONNX inference
         eval=False,  # run multi-gpu eval
 ):
-
     source = str(source)
     save_img = not nosave and not source.endswith('.txt')  # save inference images
     is_file = Path(source).suffix[1:] in (VID_FORMATS)
@@ -126,10 +147,10 @@ def run(
     outputs = [None] * nr_sources
 
     # Run tracking
-    #model.warmup(imgsz=(1 if pt else nr_sources, 3, *imgsz))  # warmup
+    # model.warmup(imgsz=(1 if pt else nr_sources, 3, *imgsz))  # warmup
     dt, seen = [0.0, 0.0, 0.0, 0.0], 0
     curr_frames, prev_frames = [None] * nr_sources, [None] * nr_sources
-    for frame_idx, (path, im, im0s, vid_cap, s) in enumerate(dataset):
+    for frame_idx, (path, im, im0s, vid_cap, s, gps_data) in enumerate(dataset):
         t1 = time_sync()
         im = torch.from_numpy(im).to(device)
         im = im.half() if half else im.float()  # uint8 to fp16/32
@@ -176,7 +197,7 @@ def run(
             imc = im0.copy() if save_crop else im0  # for save_crop
 
             annotator = Annotator(im0, line_width=line_thickness, pil=not ascii)
-            
+
             if prev_frames[i] is not None and curr_frames[i] is not None:  # camera motion compensation
                 if hasattr(tracker_list[i], 'tracker') and hasattr(tracker_list[i].tracker, 'camera_update'):
                     tracker_list[i].tracker.camera_update(prev_frames[i], curr_frames[i])
@@ -199,7 +220,7 @@ def run(
                 # draw boxes for visualization
                 if len(outputs[i]) > 0:
                     for j, (output, conf) in enumerate(zip(outputs[i], det[:, 4])):
-    
+
                         bboxes = output[0:4]
                         id = output[4]
                         cls = output[5]
@@ -219,18 +240,23 @@ def run(
                             c = int(cls)  # integer class
                             id = int(id)  # integer id
                             label = None if hide_labels else (f'{id} {names[c]}' if hide_conf else \
-                                (f'{id} {conf:.2f}' if hide_class else f'{id} {names[c]} {conf:.2f}'))
+                                                                  (
+                                                                      f'{id} {conf:.2f}' if hide_class else f'{id} {names[c]} {conf:.2f}'))
                             annotator.box_label(bboxes, label, color=colors(c, True))
                             if save_crop:
                                 txt_file_name = txt_file_name if (isinstance(path, list) and len(path) > 1) else ''
-                                save_one_box(bboxes, imc, file=save_dir / 'crops' / txt_file_name / names[c] / f'{id}' / f'{p.stem}.jpg', BGR=True)
+                                save_one_box(bboxes, imc, file=save_dir / 'crops' / txt_file_name / names[
+                                    c] / f'{id}' / f'{p.stem}.jpg', BGR=True)
                         im0 = annotator.result()
                         # TODO: добавить здесь реквест в базу с id объекта и классом и данными с автобуса
+                        im0_base64 = base64.b64encode(im0).decode('utf-8')
+                        list_data = tuple([im0_base64, " ".join(map(str, list(bboxes))), int(id), int(cls)] + list(gps_data))
+                        to_db(list_data)
                         a = 0
                 LOGGER.info(f'{s}Done. yolo:({t3 - t2:.3f}s), {tracking_method}:({t5 - t4:.3f}s)')
 
             else:
-                #strongsort_list[i].increment_ages()
+                # strongsort_list[i].increment_ages()
                 LOGGER.info('No detections')
 
             # Stream results
@@ -259,7 +285,8 @@ def run(
 
     # Print results
     t = tuple(x / seen * 1E3 for x in dt)  # speeds per image
-    LOGGER.info(f'Speed: %.1fms pre-process, %.1fms inference, %.1fms NMS, %.1fms {tracking_method} update per image at shape {(1, 3, *imgsz)}' % t)
+    LOGGER.info(
+        f'Speed: %.1fms pre-process, %.1fms inference, %.1fms NMS, %.1fms {tracking_method} update per image at shape {(1, 3, *imgsz)}' % t)
     if save_txt or save_vid:
         s = f"\n{len(list(save_dir.glob('tracks/*.txt')))} tracks saved to {save_dir / 'tracks'}" if save_txt else ''
         LOGGER.info(f"Results saved to {colorstr('bold', save_dir)}{s}")
@@ -272,7 +299,7 @@ def parse_opt():
     parser.add_argument('--yolo-weights', nargs='+', type=Path, default=WEIGHTS / 'yolov5m.pt', help='model.pt path(s)')
     parser.add_argument('--reid-weights', type=Path, default=WEIGHTS / 'osnet_x0_25_msmt17.pt')
     parser.add_argument('--tracking-method', type=str, default='strongsort', help='strongsort, ocsort, bytetrack')
-    parser.add_argument('--source', type=str, default='0', help='file/dir/URL/glob, 0 for webcam')  
+    parser.add_argument('--source', type=str, default='0', help='file/dir/URL/glob, 0 for webcam')
     parser.add_argument('--imgsz', '--img', '--img-size', nargs='+', type=int, default=[640], help='inference size h,w')
     parser.add_argument('--conf-thres', type=float, default=0.5, help='confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.5, help='NMS IoU threshold')

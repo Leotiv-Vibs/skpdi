@@ -79,7 +79,7 @@ def get_health():
 
 @app.post("/results/", response_model=schemas.Result)
 async def create_result(
-        file: json,
+        file,
         db: Session = Depends(get_db)):
     data = json.load(file)
     image = data['image']
@@ -99,11 +99,7 @@ async def create_result(
     units_geoidal_separation = data['units_geoidal_separation']
     age_differential_gps_data = data['age_differential_gps_data']
     differential_reference_station = data['differential_reference_station']
-
-    input_image = get_image_from_bytes(file)
-    results = model(input_image)
-    detect_res = results.pandas().xyxy[0].to_json(orient="records")
-    detect_res = {"result": json.loads(detect_res)}
+    detect_res = data['coordinates']
     result = schemas.StoreResult(coordinates=detect_res,
                                  image=image,
                                  id_object=id_object,

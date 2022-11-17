@@ -11,3 +11,5 @@ torchvision==0.13.1
 easydict==1.10
 gdown==4.5.3
 numpy==1.23.3
+pynmea2==1.18.0
+serial==0.0.97

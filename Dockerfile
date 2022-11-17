@@ -16,6 +16,7 @@ COPY trackers/ /opt/trackers
 COPY best.pt /opt/best.pt
 COPY track.py /opt/track.py
 COPY test_video /opt/test_video
+COPY NMEA_111122.log /opt/NMEA_111122.log
 
 RUN pip install -U pip && \
     pip install --no-cache-dir -r requirements.txt && \

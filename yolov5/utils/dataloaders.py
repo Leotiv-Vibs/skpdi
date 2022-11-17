@@ -17,7 +17,10 @@ from multiprocessing.pool import Pool, ThreadPool
 from pathlib import Path
 from threading import Thread
 from urllib.parse import urlparse
+import io
 
+import pynmea2
+import serial
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -42,6 +45,7 @@ BAR_FORMAT = '{l_bar}{bar:10}{r_bar}{bar:-10b}'  # tqdm bar format
 LOCAL_RANK = int(os.getenv('LOCAL_RANK', -1))  # https://pytorch.org/docs/stable/elastic/run.html
 RANK = int(os.getenv('RANK', -1))
 PIN_MEMORY = str(os.getenv('PIN_MEMORY', True)).lower() == 'true'  # global pin_memory for dataloaders
+
 
 # Get orientation exif tag
 for orientation in ExifTags.TAGS.keys():
@@ -253,7 +257,9 @@ class LoadImages:
         images = [x for x in files if x.split('.')[-1].lower() in IMG_FORMATS]
         videos = [x for x in files if x.split('.')[-1].lower() in VID_FORMATS]
         ni, nv = len(images), len(videos)
-
+        file = open('/opt/NMEA_111122.log', encoding='utf-8')
+        file_lines = file.readlines()
+        self.data = list(filter(None, map(lambda x: x if x[:7]==' $GPGGA' else '', file_lines)))
         self.img_size = img_size
         self.stride = stride
         self.files = images + videos
@@ -287,6 +293,8 @@ class LoadImages:
             ret_val, im0 = self.cap.retrieve()
             while not ret_val:
                 self.count += 1
+                a = 0
+
                 self.cap.release()
                 if self.count == self.nf:  # last video
                     raise StopIteration
@@ -295,6 +303,7 @@ class LoadImages:
                 ret_val, im0 = self.cap.read()
 
             self.frame += 1
+            gps_data = tuple(self.data[self.frame].split(',')[1:])
             # im0 = self._cv2_rotate(im0)  # for use if cv2 autorotation is False
             s = f'video {self.count + 1}/{self.nf} ({self.frame}/{self.frames}) {path}: '
 
@@ -312,7 +321,7 @@ class LoadImages:
             im = im.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
             im = np.ascontiguousarray(im)  # contiguous
 
-        return path, im, im0, self.cap, s
+        return path, im, im0, self.cap, s, gps_data
 
     def _new_video(self, path):
         # Create a new video capture object
@@ -347,7 +356,7 @@ class LoadStreams:
         sources = Path(sources).read_text().rsplit() if os.path.isfile(sources) else [sources]
         n = len(sources)
         self.sources = [clean_str(x) for x in sources]  # clean source names for later
-        self.imgs, self.fps, self.frames, self.threads = [None] * n, [0] * n, [0] * n, [None] * n
+        self.imgs, self.fps, self.frames, self.threads, self.gps_data = [None] * n, [0] * n, [0] * n, [None] * n, [None] * n
         for i, s in enumerate(sources):  # index, source
             # Start thread to read frames from video stream
             st = f'{i + 1}/{n}: {s}... '
@@ -360,6 +369,9 @@ class LoadStreams:
                 assert not is_colab(), '--source 0 webcam unsupported on Colab. Rerun command in a local environment.'
                 assert not is_kaggle(), '--source 0 webcam unsupported on Kaggle. Rerun command in a local environment.'
             cap = cv2.VideoCapture(s)
+            # ser = serial.Serial('/dev/ttyS1', 9600, timeout=5.0)
+            # sio = io.TextIOWrapper(io.BufferedRWPair(ser, ser))
+
             assert cap.isOpened(), f'{st}Failed to open {s}'
             w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -368,6 +380,7 @@ class LoadStreams:
             self.fps[i] = max((fps if math.isfinite(fps) else 0) % 100, 0) or 30  # 30 FPS fallback
 
             _, self.imgs[i] = cap.read()  # guarantee first frame
+            # self.threads[i] = Thread(target=self.update, args=([i, cap, s, sio]), daemon=True)
             self.threads[i] = Thread(target=self.update, args=([i, cap, s]), daemon=True)
             LOGGER.info(f"{st} Success ({self.frames[i]} frames {w}x{h} at {self.fps[i]:.2f} FPS)")
             self.threads[i].start()
@@ -382,15 +395,50 @@ class LoadStreams:
             LOGGER.warning('WARNING ⚠️ Stream shapes differ. For optimal performance supply similarly-shaped streams.')
 
     def update(self, i, cap, stream):
+    # def update(self, i, cap, stream, sio):
         # Read stream `i` frames in daemon thread
         n, f = 0, self.frames[i]  # frame number, frame array
+
         while cap.isOpened() and n < f:
             n += 1
+            # line = sio.readline()
+            # msg = pynmea2.parse(line)
+            timestamp = '090151.000'
+            latitude = '5545.7338'
+            latitude_direction = 'N'
+            longitude = '03741.0954'
+            longitude_direction = 'E'
+            gps_quality_indicator = '1'
+            number_satellites = '4'
+            horizontal_dilution_precision = '3.27'
+            antenna_alt_above_sea_level = '211.6'
+            units_altitude = 'M'
+            geoidal_separation = '14.4'
+            units_geoidal_separation = 'M'
+            age_differential_gps_data = '9999'
+            differential_reference_station = '9999'
+            g_data = (timestamp,
+                      latitude,
+                      latitude_direction,
+                      longitude,
+                      longitude_direction,
+                      gps_quality_indicator,
+                      number_satellites,
+                      horizontal_dilution_precision,
+                      antenna_alt_above_sea_level,
+                      units_altitude,
+                      geoidal_separation,
+                      units_geoidal_separation,
+                      age_differential_gps_data,
+                      differential_reference_station,
+                      )
+
             cap.grab()  # .read() = .grab() followed by .retrieve()
             if n % self.vid_stride == 0:
                 success, im = cap.retrieve()
                 if success:
                     self.imgs[i] = im
+                    self.gps_data[i] = g_data
                 else:
                     LOGGER.warning('WARNING ⚠️ Video stream unresponsive, please check your IP camera connection.')
                     self.imgs[i] = np.zeros_like(self.imgs[i])
@@ -408,6 +456,7 @@ class LoadStreams:
             raise StopIteration
 
         im0 = self.imgs.copy()
+        gps_data_ = self.gps_data.copy()
         if self.transforms:
             im = np.stack([self.transforms(x) for x in im0])  # transforms
         else:
@@ -415,7 +464,7 @@ class LoadStreams:
             im = im[..., ::-1].transpose((0, 3, 1, 2))  # BGR to RGB, BHWC to BCHW
             im = np.ascontiguousarray(im)  # contiguous
 
-        return self.sources, im, im0, None, ''
+        return self.sources, im, im0, None, '', gps_data_
 
     def __len__(self):
         return len(self.sources)  # 1E12 frames = 32 streams at 30 FPS for 30 years

@@ -6,7 +6,7 @@ services:
     build: .
     working_dir: /opt
     container_name: skpdi-detector
-    command: uvicorn src.main:app --host 0.0.0.0 --port 80
+#    command: uvicorn src.main:app --host 0.0.0.0 --port 80
     networks:
       - app-network
     volumes:
@@ -23,10 +23,11 @@ services:
       - app-network
     volumes:
       - postgres_data:/var/lib/postgresql/data/
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     environment:
       - POSTGRES_USER=username
       - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=results
+      - POSTGRES_DB=db_skdpi
     expose:
       - 5432
 
