@@ -99,8 +99,8 @@ def run(
         host=None,
         port=None
 ):
-    HOST = host
-    PORT = port
+    host = host
+    port = port
     source = str(source)
     save_img = not nosave and not source.endswith('.txt')  # save inference images
     is_file = Path(source).suffix[1:] in (VID_FORMATS)
@@ -133,7 +133,7 @@ def run(
     if webcam:
         show_vid = check_imshow()
         cudnn.benchmark = True  # set True to speed up constant image size inference
-        dataset = LoadStreams(source, img_size=imgsz, stride=stride, auto=pt, HOST=HOST, PORT=PORT)
+        dataset = LoadStreams(source, port=port, host=host, img_size=imgsz, stride=stride, auto=pt, )
         nr_sources = len(dataset)
     else:
         dataset = LoadImages(source, img_size=imgsz, stride=stride, auto=pt)
