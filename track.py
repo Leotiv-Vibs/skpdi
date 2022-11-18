@@ -247,12 +247,14 @@ def run(
                                 txt_file_name = txt_file_name if (isinstance(path, list) and len(path) > 1) else ''
                                 save_one_box(bboxes, imc, file=save_dir / 'crops' / txt_file_name / names[
                                     c] / f'{id}' / f'{p.stem}.jpg', BGR=True)
-                        im0 = annotator.result()
-                        # TODO: добавить здесь реквест в базу с id объекта и классом и данными с автобуса
-                        im0_base64 = base64.b64encode(im0).decode('utf-8')
-                        list_data = tuple([im0_base64, " ".join(map(str, list(bboxes))), int(id), int(cls)] + list(gps_data))
-                        to_db(list_data)
-                        a = 0
+
+                        if gps_data:
+                            im0 = annotator.result()
+                            # TODO: добавить здесь реквест в базу с id объекта и классом и данными с автобуса
+                            im0_base64 = base64.b64encode(im0).decode('utf-8')
+                            list_data = tuple([im0_base64, " ".join(map(str, list(bboxes))), int(id), int(cls)] + list(gps_data))
+                            to_db(list_data)
+                            a = 0
                 LOGGER.info(f'{s}Done. yolo:({t3 - t2:.3f}s), {tracking_method}:({t5 - t4:.3f}s)')
 
             else:

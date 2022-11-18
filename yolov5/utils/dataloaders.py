@@ -47,7 +47,6 @@ LOCAL_RANK = int(os.getenv('LOCAL_RANK', -1))  # https://pytorch.org/docs/stable
 RANK = int(os.getenv('RANK', -1))
 PIN_MEMORY = str(os.getenv('PIN_MEMORY', True)).lower() == 'true'  # global pin_memory for dataloaders
 
-
 # Get orientation exif tag
 for orientation in ExifTags.TAGS.keys():
     if ExifTags.TAGS[orientation] == 'Orientation':
@@ -260,7 +259,7 @@ class LoadImages:
         ni, nv = len(images), len(videos)
         file = open('/opt/NMEA_111122.log', encoding='utf-8')
         file_lines = file.readlines()
-        self.data = list(filter(None, map(lambda x: x if x[:7]==' $GPGGA' else '', file_lines)))
+        self.data = list(filter(None, map(lambda x: x if x[:7] == ' $GPGGA' else '', file_lines)))
         self.img_size = img_size
         self.stride = stride
         self.files = images + videos
@@ -348,7 +347,8 @@ class LoadImages:
 
 class LoadStreams:
     # YOLOv5 streamloader, i.e. `python detect.py --source 'rtsp://example.com/media.mp4'  # RTSP, RTMP, HTTP streams`
-    def __init__(self, sources='streams.txt', img_size=640, stride=32, auto=True, transforms=None, vid_stride=1):
+    def __init__(self, HOST, PORT, sources='streams.txt', img_size=640, stride=32, auto=True, transforms=None,
+                 vid_stride=1, ):
         torch.backends.cudnn.benchmark = True  # faster for fixed-size inference
         self.mode = 'stream'
         self.img_size = img_size
@@ -357,7 +357,8 @@ class LoadStreams:
         sources = Path(sources).read_text().rsplit() if os.path.isfile(sources) else [sources]
         n = len(sources)
         self.sources = [clean_str(x) for x in sources]  # clean source names for later
-        self.imgs, self.fps, self.frames, self.threads, self.gps_data = [None] * n, [0] * n, [0] * n, [None] * n, [None] * n
+        self.imgs, self.fps, self.frames, self.threads, self.gps_data = [None] * n, [0] * n, [0] * n, [None] * n, [
+            None] * n
         for i, s in enumerate(sources):  # index, source
             # Start thread to read frames from video stream
             st = f'{i + 1}/{n}: {s}... '
@@ -370,10 +371,8 @@ class LoadStreams:
                 assert not is_colab(), '--source 0 webcam unsupported on Colab. Rerun command in a local environment.'
                 assert not is_kaggle(), '--source 0 webcam unsupported on Kaggle. Rerun command in a local environment.'
             cap = cv2.VideoCapture(s)
-            # ser = serial.Serial('/dev/ttyS1', 9600, timeout=5.0)
-            # sio = io.TextIOWrapper(io.BufferedRWPair(ser, ser))
-            udp_client_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-            udp_client_socket.sendto(str.encode("Hello UDP Server"), ("127.0.0.1", 2000))
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.connect((HOST, PORT))
 
             assert cap.isOpened(), f'{st}Failed to open {s}'
             w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -384,7 +383,7 @@ class LoadStreams:
 
             _, self.imgs[i] = cap.read()  # guarantee first frame
             # self.threads[i] = Thread(target=self.update, args=([i, cap, s, udp_client_socket]), daemon=True)
-            self.threads[i] = Thread(target=self.update, args=([i, cap, s]), daemon=True)
+            self.threads[i] = Thread(target=self.update, args=([i, cap, s, sock]), daemon=True)
             LOGGER.info(f"{st} Success ({self.frames[i]} frames {w}x{h} at {self.fps[i]:.2f} FPS)")
             self.threads[i].start()
         LOGGER.info('')  # newline
@@ -397,46 +396,79 @@ class LoadStreams:
         if not self.rect:
             LOGGER.warning('WARNING ⚠️ Stream shapes differ. For optimal performance supply similarly-shaped streams.')
 
-    def update(self, i, cap, stream):
-    # def update(self, i, cap, stream, udp_client_socket):
+    def update(self, i, cap, stream, sock):
+        # def update(self, i, cap, stream, udp_client_socket):
         # Read stream `i` frames in daemon thread
         n, f = 0, self.frames[i]  # frame number, frame array
 
         while cap.isOpened() and n < f:
             n += 1
-            timestamp = '090151.000'
-            latitude = '5545.7338'
-            latitude_direction = 'N'
-            longitude = '03741.0954'
-            longitude_direction = 'E'
-            gps_quality_indicator = '1'
-            number_satellites = '4'
-            horizontal_dilution_precision = '3.27'
-            antenna_alt_above_sea_level = '211.6'
-            units_altitude = 'M'
-            geoidal_separation = '14.4'
-            units_geoidal_separation = 'M'
-            age_differential_gps_data = '9999'
-            differential_reference_station = '9999'
-            g_data = (timestamp,
-                      latitude,
-                      latitude_direction,
-                      longitude,
-                      longitude_direction,
-                      gps_quality_indicator,
-                      number_satellites,
-                      horizontal_dilution_precision,
-                      antenna_alt_above_sea_level,
-                      units_altitude,
-                      geoidal_separation,
-                      units_geoidal_separation,
-                      age_differential_gps_data,
-                      differential_reference_station,
-                      )
+            # timestamp = '090151.000'
+            # latitude = '5545.7338'
+            # latitude_direction = 'N'
+            # longitude = '03741.0954'
+            # longitude_direction = 'E'
+            # gps_quality_indicator = '1'
+            # number_satellites = '4'
+            # horizontal_dilution_precision = '3.27'
+            # antenna_alt_above_sea_level = '211.6'
+            # units_altitude = 'M'
+            # geoidal_separation = '14.4'
+            # units_geoidal_separation = 'M'
+            # age_differential_gps_data = '9999'
+            # differential_reference_station = '9999'
+            # g_data = (timestamp,
+            #           latitude,
+            #           latitude_direction,
+            #           longitude,
+            #           longitude_direction,
+            #           gps_quality_indicator,
+            #           number_satellites,
+            #           horizontal_dilution_precision,
+            #           antenna_alt_above_sea_level,
+            #           units_altitude,
+            #           geoidal_separation,
+            #           units_geoidal_separation,
+            #           age_differential_gps_data,
+            #           differential_reference_station,
+            #           )
 
             cap.grab()
-            # answer_server = udp_client_socket.recvfrom(1024)
-            # pynmea2.parse(answer_server)
+            data = sock.recvfrom(1024)
+            data_split = data[0].split(',')
+            if data_split[0] == '$GPGGA':
+                timestamp = data_split[1]
+                latitude = data_split[2]
+                latitude_direction = data_split[3]
+                longitude = data_split[4]
+                longitude_direction = data_split[5]
+                gps_quality_indicator = data_split[6]
+                number_satellites = data_split[7]
+                horizontal_dilution_precision = data_split[8]
+                antenna_alt_above_sea_level = data_split[9]
+                units_altitude = data_split[10]
+                geoidal_separation = data_split[11]
+                units_geoidal_separation = data_split[12]
+                age_differential_gps_data = data_split[13]
+                differential_reference_station = data_split[14]
+
+                g_data = (timestamp,
+                          latitude,
+                          latitude_direction,
+                          longitude,
+                          longitude_direction,
+                          gps_quality_indicator,
+                          number_satellites,
+                          horizontal_dilution_precision,
+                          antenna_alt_above_sea_level,
+                          units_altitude,
+                          geoidal_separation,
+                          units_geoidal_separation,
+                          age_differential_gps_data,
+                          differential_reference_station,
+                          )
+            else:
+                g_data = False
             # .read() = .grab() followed by .retrieve()
             if n % self.vid_stride == 0:
                 success, im = cap.retrieve()
