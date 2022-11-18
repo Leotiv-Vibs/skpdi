@@ -17,6 +17,7 @@ from multiprocessing.pool import Pool, ThreadPool
 from pathlib import Path
 from threading import Thread
 from urllib.parse import urlparse
+import socket
 import io
 
 import pynmea2
@@ -371,6 +372,8 @@ class LoadStreams:
             cap = cv2.VideoCapture(s)
             # ser = serial.Serial('/dev/ttyS1', 9600, timeout=5.0)
             # sio = io.TextIOWrapper(io.BufferedRWPair(ser, ser))
+            udp_client_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+            udp_client_socket.sendto(str.encode("Hello UDP Server"), ("127.0.0.1", 2000))
 
             assert cap.isOpened(), f'{st}Failed to open {s}'
             w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -380,7 +383,7 @@ class LoadStreams:
             self.fps[i] = max((fps if math.isfinite(fps) else 0) % 100, 0) or 30  # 30 FPS fallback
 
             _, self.imgs[i] = cap.read()  # guarantee first frame
-            # self.threads[i] = Thread(target=self.update, args=([i, cap, s, sio]), daemon=True)
+            # self.threads[i] = Thread(target=self.update, args=([i, cap, s, udp_client_socket]), daemon=True)
             self.threads[i] = Thread(target=self.update, args=([i, cap, s]), daemon=True)
             LOGGER.info(f"{st} Success ({self.frames[i]} frames {w}x{h} at {self.fps[i]:.2f} FPS)")
             self.threads[i].start()
@@ -395,14 +398,12 @@ class LoadStreams:
             LOGGER.warning('WARNING ⚠️ Stream shapes differ. For optimal performance supply similarly-shaped streams.')
 
     def update(self, i, cap, stream):
-    # def update(self, i, cap, stream, sio):
+    # def update(self, i, cap, stream, udp_client_socket):
         # Read stream `i` frames in daemon thread
         n, f = 0, self.frames[i]  # frame number, frame array
 
         while cap.isOpened() and n < f:
             n += 1
-            # line = sio.readline()
-            # msg = pynmea2.parse(line)
             timestamp = '090151.000'
             latitude = '5545.7338'
             latitude_direction = 'N'
@@ -433,7 +434,10 @@ class LoadStreams:
                       differential_reference_station,
                       )
 
-            cap.grab()  # .read() = .grab() followed by .retrieve()
+            cap.grab()
+            # answer_server = udp_client_socket.recvfrom(1024)
+            # pynmea2.parse(answer_server)
+            # .read() = .grab() followed by .retrieve()
             if n % self.vid_stride == 0:
                 success, im = cap.retrieve()
                 if success:
