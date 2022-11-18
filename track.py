@@ -96,7 +96,11 @@ def run(
         half=False,  # use FP16 half-precision inference
         dnn=False,  # use OpenCV DNN for ONNX inference
         eval=False,  # run multi-gpu eval
+        host=None,
+        port=None
 ):
+    HOST = host
+    PORT = port
     source = str(source)
     save_img = not nosave and not source.endswith('.txt')  # save inference images
     is_file = Path(source).suffix[1:] in (VID_FORMATS)
@@ -129,7 +133,7 @@ def run(
     if webcam:
         show_vid = check_imshow()
         cudnn.benchmark = True  # set True to speed up constant image size inference
-        dataset = LoadStreams(source, img_size=imgsz, stride=stride, auto=pt)
+        dataset = LoadStreams(source, img_size=imgsz, stride=stride, auto=pt, HOST=HOST, PORT=PORT)
         nr_sources = len(dataset)
     else:
         dataset = LoadImages(source, img_size=imgsz, stride=stride, auto=pt)
@@ -252,7 +256,8 @@ def run(
                             im0 = annotator.result()
                             # TODO: добавить здесь реквест в базу с id объекта и классом и данными с автобуса
                             im0_base64 = base64.b64encode(im0).decode('utf-8')
-                            list_data = tuple([im0_base64, " ".join(map(str, list(bboxes))), int(id), int(cls)] + list(gps_data))
+                            list_data = tuple(
+                                [im0_base64, " ".join(map(str, list(bboxes))), int(id), int(cls)] + list(gps_data))
                             to_db(list_data)
                             a = 0
                 LOGGER.info(f'{s}Done. yolo:({t3 - t2:.3f}s), {tracking_method}:({t5 - t4:.3f}s)')
@@ -302,6 +307,8 @@ def parse_opt():
     parser.add_argument('--reid-weights', type=Path, default=WEIGHTS / 'osnet_x0_25_msmt17.pt')
     parser.add_argument('--tracking-method', type=str, default='strongsort', help='strongsort, ocsort, bytetrack')
     parser.add_argument('--source', type=str, default='0', help='file/dir/URL/glob, 0 for webcam')
+    parser.add_argument('--host', type=str, default='', help='host for init stream')
+    parser.add_argument('--port', type=str, default='', help='port for init init stream')
     parser.add_argument('--imgsz', '--img', '--img-size', nargs='+', type=int, default=[640], help='inference size h,w')
     parser.add_argument('--conf-thres', type=float, default=0.5, help='confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.5, help='NMS IoU threshold')
