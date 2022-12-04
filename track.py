@@ -53,15 +53,18 @@ def to_db(list_save):
     Запись в базу данных.
     """
     # открываем соединение с базой
-    connect = psycopg2.connect(dbname='db_skdpi', user='username', password='password', host='skpdi_db', port=5432)
-    cursor = connect.cursor()
-    tup = (list_save,)
-    columns = "(image_base,labels,id_object,class_object,timestamp,latitude,latitude_direction,longitude,longitude_direction, gps_quality_indicator,number_satellites, horizontal_dilution_precision,antenna_alt_above_sea_level,units_altitude,geoidal_separation,units_geoidal_separation,age_differential_gps_data,differential_reference_station)"
-    cursor.executemany(
-        f"INSERT INTO t_skpdi{columns} VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-        tup)
-    connect.commit()
-    connect.close()
+    try:
+        connect = psycopg2.connect(dbname='db_skdpi', user='username', password='password', host='skpdi_db', port=5432)
+        cursor = connect.cursor()
+        tup = (list_save,)
+        columns = "(image_base,labels,id_object,class_object,timestamp,latitude,latitude_direction,longitude,longitude_direction, gps_quality_indicator,number_satellites, horizontal_dilution_precision,antenna_alt_above_sea_level,units_altitude,geoidal_separation,units_geoidal_separation,age_differential_gps_data,differential_reference_station)"
+        cursor.executemany(
+            f"INSERT INTO t_skpdi{columns} VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+            tup)
+        connect.commit()
+        connect.close()
+    except:
+        print("Error with the addition to the database. Check the format of the transmitted data. ")
 
 
 @torch.no_grad()
@@ -101,6 +104,8 @@ def run(
 ):
     host = host
     port = port
+    print(f"host: {host}")
+    print(f"port: {port}")
     source = str(source)
     save_img = not nosave and not source.endswith('.txt')  # save inference images
     is_file = Path(source).suffix[1:] in (VID_FORMATS)
@@ -307,8 +312,8 @@ def parse_opt():
     parser.add_argument('--reid-weights', type=Path, default=WEIGHTS / 'osnet_x0_25_msmt17.pt')
     parser.add_argument('--tracking-method', type=str, default='strongsort', help='strongsort, ocsort, bytetrack')
     parser.add_argument('--source', type=str, default='0', help='file/dir/URL/glob, 0 for webcam')
-    parser.add_argument('--host', type=str, default='', help='host for init stream')
-    parser.add_argument('--port', type=str, default='', help='port for init init stream')
+    parser.add_argument('--host', type=str, default="127.0.0.1", help='host for init stream')
+    parser.add_argument('--port', type=int, default=8000, help='port for init stream')
     parser.add_argument('--imgsz', '--img', '--img-size', nargs='+', type=int, default=[640], help='inference size h,w')
     parser.add_argument('--conf-thres', type=float, default=0.5, help='confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.5, help='NMS IoU threshold')

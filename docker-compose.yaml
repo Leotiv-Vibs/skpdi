@@ -3,11 +3,14 @@ version: '2.2'
 services:
   detect-app:
     image: skpdi-detect-app
-    build: .
+    build:
+      context: .
+      args:
+        HOST: ${HOST}
+        PORT: ${PORT}
     working_dir: /opt
     container_name: skpdi-detector
-    command: python track.py --source  test_video/2021-11-22_11-27-22-_online-video-cutter.com_.mp4 --yolo-weights best.pt --img 640 --tracking-method strongsort --save-vid --conf-thres 0.7 --reid-weights osnet_x1_0_msmt17.pt --host ${YOUR_HOST} --port ${YOUR_PORT}
-#    command: python track.py --source  rtsp://admin:admin@192.168.1.13:554/stander/livestream/0/0 --yolo-weights best.pt --img 640 --tracking-method strongsort --save-vid --conf-thres 0.7 --reid-weights osnet_x1_0_msmt17.pt --host ${YOUR_HOST} --port ${YOUR_PORT}
+#    command: uvicorn src.main:app --host 0.0.0.0 --port 80
     networks:
       - app-network
     restart: always
